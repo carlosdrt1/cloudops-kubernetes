@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgrest
+  namespace: cloudops-kubernetes
+spec:
+  selector:
+    matchLabels:
+      app: postgrest
+  template:
+    metadata:
+      labels:
+        app: postgrest
+    spec:
+      containers:
+      - name: postgrest
+        image: postgrest/postgrest
+        ports:
+        - containerPort: 3000
+
+        env:
+          - name: PGRST_DB_URI
+            valueFrom:
+              secretKeyRef:
+                name: app-secrets
+                key: PGRST_DB_URI
+
+          - name: PGRST_DB_SCHEMA
+            value: public
+
+          - name: PGRST_DB_ANON_ROLE
+            value: web_anon
+
