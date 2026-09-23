@@ -21,6 +21,8 @@ A aplicação é composta por dois Deployments principais, PostgREST e PostgreSQ
 
 - As credenciais utilizadas pelo PostgreSQL e pelo PostgREST são armazenadas em um Secret, enquanto a configuração de inicialização do banco é definida em um ConfigMap.
 
+- Além disso foram configuradas liveness e readiness probs para o Deployment do PostgREST. A readiness probe verifica se o Pod está pronto para receber tráfego, enquanto a liveness probe verifica se a aplicação continua funcionando corretamente, permitindo que o Kubernetes reinicie o container caso ele apresente uma falha persistente.
+
 ## Criando o ambiente
 
 #### 1. Crie o arquivo `k8s/secrets.yml` 
@@ -127,6 +129,33 @@ E ao esperar o Pod subir novamente, e os Pods da API ficarem `ready` novamente, 
 curl <NodeIP>:30001/users
 ```
 
+#### Testando HPA
+Para testar o HPA é necessário habilitar o `metrics-server` da sua ferramenta, por conta do HPA usar as métricas registradas.
+
+Para verificar se o `metrics-server` está habilitado:
+
+```bash
+kubectl top pods -n cloudops-kubernetes
+```
+
+O HPA está configurado para no mínimo 3 réplicas, podendo aumentar até 6. O critério de scale up é se passar de 50% do uso de CPU.
+
+Para acompanhar em tempo real:
+
+```bash
+kubectl get hpa -n cloudops-kubernetes -w
+```
+
+E com uma ferramenta de estresse (como o ApacheBench do exemplo) pode-se gerar carga e ver as replicas sendo criadas
+
+Exemplo com ApacheBench:
+
+```bash 
+ab -n 100000 -c 500 <NodeIP>:30001/users
+```
+
+Enquanto essa carga é gerada é possível ver com o comando anterior as replicas aumentando
+
 ## Evidências
 
 Algumas evidências da API funcionando e persistência dos dados. Os exemplos com curl foi utilizado o `jq` para melhor visualização da resposta pelo terminal
@@ -144,6 +173,11 @@ Aqui é verificado se a API consegue buscar dados no banco e se é possível ins
 Aqui o Pod de banco de dados vai ser deletado, e quando subir novamente podemos ver se os dados persistiram
 
 ![Testando persistência do volume](./docs/gifs/teste-persistencia-volume.gif)
+
+#### Teste do HPA do Postgrest
+Aqui foi realizado um teste com apache-ab para estressar a aplicação e ver se o HPA cria novas réplicas
+
+![Testando HPA no Deployment do PostgREST](./docs/gifs/hpa-teste.gif)
 
 ## Reflexões
 
@@ -180,4 +214,3 @@ Algumas reflexões sobre cada nível do desafio
 > A readiness probe indica se o Pod está pronto para receber tráfego, enquanto a liveness probe verifica se a aplicação continua funcionando e pode provocar a reinicialização do container em caso de falhas persistentes. 
 > 
 > A API pode ter várias réplicas porque seus Pods são stateless e podem acessar o mesmo banco de dados. Já o PostgreSQL é stateful e precisa manter seus dados de forma consistente em um armazenamento persistente, portanto simplesmente criar várias réplicas usando o mesmo PVC não é uma estratégia adequada.
-
